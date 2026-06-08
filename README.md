@@ -39,7 +39,7 @@ MWNTCOIN is a standardized capacity claim where:
 - **Smart Contracts:** Rust / Anchor Framework (minting logic, burn-for-delivery).
 - **Identity:** Civic Pass for whitelisted redemption.
 - **Frontend:** Next.js dashboard for providers (mint) and developers (burn).
-- **Oracle:** Simulated silicon-data feed to track the MWNT price peg.
+- **Oracle:** Simulated Silicon-Data feed to track the MWNT price peg.
 
 ## 📂 Repository Structure
 
