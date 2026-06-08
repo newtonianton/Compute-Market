@@ -1,6 +1,6 @@
 # ⚡ CapacityClaim: Powering the MWNTCOIN Protocol
 
-Built for the Easy A Kickstart Hackathon
+Built for the EasyA Kickstart Hackathon
 
 CapacityClaim is the infrastructure for **MWNTCOIN (MWNT)**—the world’s first tokenised, stablecoin-style compute claim. We are solving the "financialization of compute" by transforming raw GPU power into a liquid, tradeable, and redeemable Solana-native asset.
 
@@ -19,7 +19,7 @@ MWNTCOIN is a standardized capacity claim where:
 
 ### 1) The MWNT Minting Engine (Supply)
 
-- **Hardware Attestation:** Providers use our tee-mock service to submit hardware proofs.
+- **Hardware Attestation:** Providers use our `tee-mock` service to submit hardware proofs.
 - **Whitelisted Mint:** Upon verification, the protocol mints MWNT tokens to the provider.
 - **The Peg:** Unlike volatile DePIN tokens, MWNT is designed to track the "Fair Market Price" of an H100-hour, anchored by an on-chain price oracle.
 
