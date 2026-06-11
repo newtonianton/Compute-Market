@@ -1,3 +1,3 @@
-"""Compute market — a minimal, extensible framework for trading GPU compute capacity."""
+"""MWNT — a graded, dated, bonded compute market (hackathon build)."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

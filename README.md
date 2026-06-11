@@ -1,157 +1,159 @@
-# Compute Market
+# MWNT — a compute market you can actually demo
 
-A minimal, **extensible framework for trading GPU compute as a financial asset**. Providers mint standardized capacity units; those units trade on a price-time-priority order book; buyers redeem them for delivery. Built with FastAPI, no database, no chain — so you can stand it up in one command and bend it toward whatever your differentiator turns out to be.
-
-It is deliberately *generic*. It implements the five primitives every compute market needs and nothing opinionated on top, so it's a starting point, not a finished product.
-
----
-
-## The one thing to understand first
-
-There are **two layers**, and they are separate:
-
-1. **Your Kickstart coin** — the fair-launch token you mint on EasyA Kickstart. That satisfies hackathon eligibility, builds community, and pays you the creator fee. *This repo is not that.*
-2. **This framework** — the actual market where compute capacity is represented, priced, traded, and redeemed.
-
-They connect later (e.g. your coin could become the quote currency, or grant fee discounts), but you do **not** need to fuse them to ship. Launch the coin for eligibility; build this in public alongside it.
-
----
-
-## The five primitives (and where each lives)
-
-| Primitive | What it does | File |
-|---|---|---|
-| **Capacity unit** | Defines the standardized, fungible thing that trades (e.g. one H100-hour) | `app/config.py` |
-| **Registry / whitelist** | Who may supply and who may redeem — the "verified providers/purchasers" gate | `app/registry.py` |
-| **Mint / redeem** | Whitelisted providers create supply; holders burn units for delivery | `app/capacity.py` |
-| **Price / order flow** | A continuous order book with escrow and partial fills | `app/market.py` |
-| **Settlement** | Pays sellers on each fill; lets them withdraw out to a wallet | `app/settlement.py` |
-
-State and all balance accounting (the "ledger") live in `app/store.py`. That file is the single source of truth and the main swap point.
-
----
-
-## Run it
-
-Requires Python 3.10+.
-
-```bash
-cd compute-market
-python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-uvicorn app.main:app --reload
-```
-
-Then open:
-
-- **http://127.0.0.1:8000/** — the demo console (register a provider, mint, trade, watch the book)
-- **http://127.0.0.1:8000/docs** — interactive API docs; every endpoint is callable from the browser
-
-Run the tests anytime to confirm nothing broke:
-
-```bash
-pytest -q
-```
-
----
-
-## The flow, end to end
-
-The console walks you through this; here it is as raw API calls so you can see the shape.
-
-```bash
-# 1. Register a provider (whitelisted to mint by default)
-PID=$(curl -s -X POST localhost:8000/providers -H 'content-type: application/json' \
-  -d '{"label":"Acme GPU"}' | python -c "import sys,json;print(json.load(sys.stdin)['id'])")
-
-# 2. Provider mints 100 H100-hours of supply
-curl -s -X POST localhost:8000/capacity/mint -H 'content-type: application/json' \
-  -d "{\"provider_id\":\"$PID\",\"sku\":\"H100-HOUR\",\"qty\":100}"
-
-# 3. Provider posts an offer: sell 50 @ 2.50
-curl -s -X POST localhost:8000/orders -H 'content-type: application/json' \
-  -d "{\"account_id\":\"$PID\",\"side\":\"sell\",\"sku\":\"H100-HOUR\",\"qty\":50,\"price\":2.50}"
-
-# 4. A buyer registers, funds, and lifts 20 of the offer
-BID=$(curl -s -X POST localhost:8000/accounts -H 'content-type: application/json' \
-  -d '{"label":"AI Lab","purchaser":true}' | python -c "import sys,json;print(json.load(sys.stdin)['id'])")
-curl -s -X POST localhost:8000/accounts/$BID/deposit -H 'content-type: application/json' -d '{"amount":1000}'
-curl -s -X POST localhost:8000/orders -H 'content-type: application/json' \
-  -d "{\"account_id\":\"$BID\",\"side\":\"buy\",\"sku\":\"H100-HOUR\",\"qty\":20,\"price\":2.50}"
-
-# 5. Buyer redeems 5 units for actual delivery (burns the tokens)
-curl -s -X POST localhost:8000/capacity/redeem -H 'content-type: application/json' \
-  -d "{\"account_id\":\"$BID\",\"sku\":\"H100-HOUR\",\"qty\":5}"
-
-# 6. Seller settles earned quote out to a wallet
-curl -s -X POST localhost:8000/accounts/$PID/withdraw -H 'content-type: application/json' -d '{"amount":50}'
-```
-
-The key property: between mint (3) and redeem (5), a unit can change hands any number of times. A pure speculator can buy at step 4 and resell without ever redeeming — that's the "most traders never take delivery" behaviour the brief is pointing at.
-
----
-
-## How to modify it — the extension points
-
-Each primitive is isolated so you can replace one without touching the others.
-
-### Change what trades
-Edit `DEFAULT_SKUS` in `app/config.py`. Add region, interconnect, or commitment-term fields to the `Sku` model to define capacity more tightly. **Fungibility is the hard part of any compute market** — the more precisely you define the unit, the more credible "any H100-hour is interchangeable" becomes.
-
-### Turn the whitelist into real verification
-Right now `app/registry.py` whitelists with a boolean. Replace those endpoints with genuine provider attestation — KYC, a staking deposit, or hardware proof (e.g. a TEE attestation) — and your buyer-side checks. Flip `REQUIRE_WHITELISTED_PURCHASER = True` in config to enforce the "only verified purchasers can redeem" rule.
-
-### Make it persistent or on-chain
-`app/store.py` defines an abstract `Store`; `InMemoryStore` is one implementation. Write `SqliteStore` (or `SolanaStore`) implementing the same persistence methods and select it in `app/deps.py`. The accounting rules and every router stay untouched. *(If you go DB-backed, re-save the account after each accounting call — see the note at the top of `store.py`.)* Making capacity an actual SPL token with mint authority gated to whitelisted providers is the natural on-chain version of `mint_capacity`/`burn_capacity`.
-
-### Price differently
-`match()` in `app/market.py` is a continuous order book. Swap it for an AMM (constant-product over a capacity/quote pool), a periodic batch auction, or an RFQ/quote model — and keep the reserve/escrow accounting as-is. The rest of the system doesn't care how price is formed.
-
-### Wire up real money
-`app/settlement.py` is a stub that debits an internal balance. Replace the body with a real USDC transfer on Solana, an [x402](https://www.x402.org/) micropayment, or a Tempo/MPP streaming payout. Keep the endpoint shape; swap the rails. The funding stub (`/deposit`) becomes an on-chain deposit watcher.
-
-### Connect your Kickstart coin
-Once your coin is live, options include: set it as the `QUOTE_CURRENCY`, give holders fee discounts at settlement, or distribute a share of trading fees to holders. This is where the two layers finally meet.
-
----
-
-## How this maps to the hackathon brief
-
-- **Supply** → providers, onboarded via the registry and creating units via mint.
-- **Demand** → buyers and agents placing bids; pure traders providing liquidity.
-- **Price** → the order book's cleared price, visible via `/orderbook/{sku}` and the tape at `/trades`.
-- **Settlement** → atomic at each fill, with an explicit exit to capacity sellers.
-- **Mint/redeem like a stablecoin** → whitelisted mint, gated redeem, free trading in between.
-
----
-
-## Caveats (read before you demo or extend)
-
-- **In-memory:** all state resets when the server restarts. Fine for a demo; add a `Store` backend for anything durable.
-- **Money is `float`:** readable, but floats accumulate rounding error. For real value, switch balances to integer minor-units or `Decimal` (localized to `app/models.py` + `app/store.py`).
-- **No authentication:** any caller can act as any `account_id`. Add auth (signed requests / wallet signatures) before this is anything but a local demo.
-- **No real delivery:** "redeem" logs a record; it does not provision a GPU. Hooking redemption to an actual cluster lease / API key is real work and a strong differentiator.
-- **Single-process, not concurrency-safe:** the matching engine assumes one worker. Don't run multiple uvicorn workers against the in-memory store.
-
----
-
-## Layout
+Graded, dated, bonded GPU compute that trades like a commodity. Grades are
+fingerprinted checklists (Layer 1); contracts add a weekly delivery window
+(Layer 2); a **uniform-price batch auction** sets one price per round with
+reliability priced in before clearing (Layer 3); **attestation + bonds +
+reputation** make strangers safe to trade with (Layer 4); **escrow + slashing +
+an insurance pool** make fraud unprofitable by arithmetic (Layer 5).
 
 ```
-compute-market/
+mwnt/
 ├── app/
-│   ├── config.py        # capacity units (SKUs) + market knobs   ← start here
-│   ├── models.py        # entities + request/response schemas
-│   ├── store.py         # state + accounting (the ledger)        ← swap point
-│   ├── deps.py          # store wiring / injection
-│   ├── registry.py      # accounts, whitelist, funding
-│   ├── capacity.py      # mint / redeem
-│   ├── market.py        # order book + matching engine
-│   ├── settlement.py    # payouts
-│   └── main.py          # app wiring, errors, console, health
-├── web/index.html       # single-file demo console
-├── tests/test_flow.py   # end-to-end flow + invariant tests
+│   ├── __init__.py        # version
+│   ├── main.py            # FastAPI entrypoint, routers, demo console, /reset
+│   ├── config.py          # grade catalogue + every economic constant, with rationale
+│   ├── models.py          # Pydantic entities = API schemas (single source of truth)
+│   ├── store.py           # in-memory ledger + all balance-moving primitives
+│   ├── deps.py            # store dependency injection (swapped in tests)
+│   ├── errors.py          # domain errors -> HTTP statuses
+│   ├── registry.py        # Layer 4: accounts, attestation, bonding, reputation
+│   ├── grades.py          # Layers 1-2: grades, contracts, gated minting
+│   ├── auction.py         # Layer 3: floors, bids, uniform-price clearing, the index
+│   ├── settlement.py      # Layer 5: redeem, delivery oracle, slashing, pool
+│   └── rfq.py             # the bespoke-demand side door
+├── web/
+│   └── index.html         # zero-build demo console served at /
+├── tests/
+│   └── test_main.py       # 14 end-to-end tests incl. the worked example, number-for-number
+├── conftest.py            # makes `app` importable for bare `pytest`
 ├── requirements.txt
 └── README.md
 ```
+
+## Quickstart
+
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+| URL | What |
+|---|---|
+| http://127.0.0.1:8000/ | Demo console (the thing you show judges) |
+| http://127.0.0.1:8000/docs | Swagger UI — every endpoint, interactive |
+| http://127.0.0.1:8000/health | Liveness |
+
+Tests:
+
+```bash
+pytest -q        # 14 passed
+```
+
+## The 3-minute demo script
+
+Everything below happens in the console at `/` (it drives the same public API
+that `/docs` exposes — nothing is faked).
+
+1. **Seed the worked example** (button, top right). This registers the
+   whitepaper's cast via the real endpoints: Nordfjord attests its H100s
+   against the `EU-H100.v1` checklist, posts a **$120 bond** (150% newcomer
+   rate), mints 40 hours, and sets one standing floor of **40h ≥ $1.50** —
+   then never touches the market again. Providers B and C, and buyers
+   Tessellate ($2.40 max), Y ($2.00) and Z ($1.70) join the same book.
+   Point at the order book: asks are shown at their *effective* price —
+   each floor bumped by the seller's failure rate.
+
+2. **Clear round.** The banner prints: **60h at $2.00** — the single crossing
+   price. Narrate the two punchlines: Nordfjord's floor was $1.50 but it
+   *receives* $2.00; Tessellate offered $2.40 but *pays* $2.00 and its unused
+   $12 of escrow is already back in its wallet (check the Participants panel).
+   The price appears on the **index tape** at the top — the market just built
+   its own benchmark. Note Nordfjord's $80 sits in *escrow*, not its wallet:
+   sellers get paid on delivery, not on sale.
+
+3. **Happy path.** In *Redeem*, burn 20 of Tessellate's hours, then press
+   **deliver** on the tickets. Escrow releases to Nordfjord, its delivery
+   record ticks up, and its bond *rate* ticks down — trust being earned down
+   in real time (`GET /accounts/{id}/bond-status` shows the curve).
+
+4. **The failure branch** (the credibility moment). Redeem 10 more hours and
+   press **no-show**. The activity log shows the exact whitepaper math:
+   **refund $20.00, comp $4.00, slashed $6.00 to pool**. The insurance pool
+   ticks to $6.00, and Nordfjord's failure rate now bumps its floor in every
+   future round — flakiness is priced in automatically.
+
+5. **Fraud is unprofitable by arithmetic.** Tell it over the pool panel:
+   an attacker running both sides of that $20 contract collects $4 in
+   compensation but forfeits $10 of bond — **−$6 per cycle, every cycle**
+   (`test_self_dealing_fraud_is_a_guaranteed_net_loss` asserts exactly this).
+
+6. **Capacity is inventory.** Tessellate's project slips: post a floor of its
+   remaining hours at $2.20 from `/docs` (`POST /floors` — any token holder
+   may sell), add a late buyer's bid, clear again. The tape prints a second,
+   higher index point — a secondary market in 30 seconds.
+
+7. **Empty rounds are not errors.** Switch the contract selector to an empty
+   window and clear: *"Round cleared with no trade — a valid outcome."*
+
+8. **The RFQ side door** (if asked): `POST /rfqs` → `/rfqs/{id}/quotes` →
+   `/rfqs/{id}/accept` escrows the buyer's funds and opens a delivery ticket
+   through the *same* settlement machinery — bespoke deals are bonded too.
+
+## Design choices
+
+**Backend: FastAPI + Pydantic, in-memory store.** One process, zero
+infrastructure, instant cold start — ideal for a hackathon booth. Pydantic
+models are simultaneously the domain entities and the API schemas, so the
+state and the docs can't drift. All value movement goes through named
+primitives in `store.py` (`lock_quote`, `slash_bond`, `move_locked_capacity`);
+routers compose primitives but never touch balances, which is what makes the
+store swappable for Postgres — or for the Solana programs the whitepaper
+describes (each contract = one SPL mint; `mint`/`burn_capacity` map to mint
+authority and token burns; `Escrow` maps to a PDA) — without touching the
+market logic.
+
+**Frontend: a single static HTML file, no build step.** Vanilla JS + `fetch`
+against the same public API judges can poke in Swagger. No node_modules to
+break five minutes before the demo; the entire UI deploys by existing.
+
+**Auction over order book.** The previous version (attached `market.py`) was a
+continuous price-time-priority CLOB. We deliberately replaced it: with thin
+hackathon flow, a batch auction aggregates everything into one meaningful
+crossing, makes truthful quoting the dominant strategy, and emits one clean
+index point per round. The clearing engine is ~80 isolated lines
+(`clear_auction`); an AMM or CLOB could be swapped back in without touching
+escrow/bond accounting — same modularity bet as before, different mechanism.
+
+**Reliability premium ranks, payment doesn't.** Floors are *ranked* at
+`floor × (1 + failure_rate)` (newcomers get a 2% default so "no history" never
+beats "good history"), but everyone still trades at the one clearing price.
+Risk affects who wins, not what the winner is paid — that keeps the uniform
+price honest.
+
+**Clearing-price convention.** When a range of prices clears the same maximum
+volume, we take the highest (the demand-side end), matching the whitepaper's
+worked example ($1.80–$2.00 range → $2.00).
+
+**Bond economics in one place.** `config.py` holds every constant with its
+rationale: 150% newcomer rate stepping down per delivered hour, floored at
+50% so a failure (20% comp + 30% slash) is always covered; slash > comp is
+the entire anti-fraud argument, so they sit next to each other in the file.
+
+**The delivery oracle is two endpoints, on purpose.** `confirm`/`fail` make
+the load-bearing wall *visible and demoable* — you can act out the failure
+branch live. The honest framing for judges: in production this is metered
+usage, and making it manipulation-resistant is the open research problem.
+
+## Known simplifications (say these before judges find them)
+
+- **Money is floats.** Production needs integer minor-units / Decimal;
+  the swap is localized in `models.py`.
+- **Resale & the escrow chain.** Deliveries are funded from the *redeemer's
+  own* purchase escrows (FIFO). A buyer who resells tokens transfers the
+  claim but not the escrow linkage — fine for the demo, a real design task
+  for the token model on-chain.
+- **In-memory state**: a restart is a market reset (also a feature: `POST /reset`).
+- **No auth**: any caller is any account. Wallet signatures replace this on Solana.
+- **The scheduler is you**: rounds clear when `POST /auctions/{id}/clear` is
+  called; production runs it on a timer.

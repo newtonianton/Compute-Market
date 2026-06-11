@@ -1,7 +1,4 @@
 __pycache__/
-*.py[cod]
+*.pyc
 .venv/
-venv/
-*.db
 .pytest_cache/
-.DS_Store
