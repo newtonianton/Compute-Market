@@ -16,6 +16,8 @@ speak it live.
    → no-show all. Reset again. The whole sequence is 9 clicks; the timings
    below leave slack for the UI to refresh.
 5. Mouse discipline: park the cursor near the next button during each line.
+6. If you want the token layer visible, connect Phantom before seeding so the
+  first mint also mirrors to a live Token-2022 address on devnet.
 
 ## Run-of-show (what your hands do)
 
@@ -23,7 +25,8 @@ speak it live.
 |---|---|---|
 | 0:00–0:10 | Nothing — let the empty console breathe | Header, empty index tape, empty book |
 | 0:10 | Click **Seed worked example** | Activity log fills: 3 providers attest + bond + mint, 3 buyers escrow bids; book shows 3 green bid levels vs 3 red ask levels |
-| 0:10–0:25 | Hover slowly down the order book | Asks shown at *effective* prices (reliability-bumped); depth bars |
+| 0:12–0:22 | Pause on the mint line under the book | The contract's Token-2022 mint appears once capacity is minted; if Phantom is connected, the same mint also mirrors to the wallet |
+| 0:22–0:25 | Hover slowly down the order book | Asks shown at *effective* prices (reliability-bumped); depth bars |
 | 0:25 | Click **Clear round now** | Banner: "Cleared **60h** at **$2.00**"; **$2.00** prints on the index tape; Tessellate's $12 refund visible in Participants |
 | 0:25–0:45 | Point at Nordfjord in Participants | quote_free $0 — its $80 sits in escrow, not its wallet |
 | 0:45 | In **Redeem**: pick *Tessellate AI*, qty **20**, click **Redeem**; then click **deliver** on the pending ticket(s) | Ticket flips to green `delivered`; Nordfjord's free balance jumps; its fail-rate pill stays clean |
@@ -45,9 +48,11 @@ Total: 9 clicks. If a refresh lags, hold the current sentence — the script has
 > **[0:10]** One click seeds a real scenario through the public API. Three
 > providers attest their hardware against a fingerprinted grade checklist,
 > post collateral, and set one standing floor — Nordfjord says "anything above
-> a dollar fifty" and never touches the market again. Three buyers post
-> maximums, fully escrowed. Notice the asks: each floor is bumped by the
-> seller's failure rate. Reliability is priced in *before* clearing.
+> a dollar fifty" and never touches the market again. The same mint line you
+> see under the book is not decorative — each contract has a live Token-2022
+> mint, and if a wallet is connected the first mint mirrors there too. Three
+> buyers post maximums, fully escrowed. Notice the asks: each floor is bumped
+> by the seller's failure rate. Reliability is priced in *before* clearing.
 >
 > **[0:25]** One auction, one price. Sixty hours clear at two dollars flat.
 > Nordfjord asked one-fifty and *receives* two dollars; Tessellate offered
@@ -87,4 +92,5 @@ Total: 9 clicks. If a refresh lags, hold the current sentence — the script has
   inventory — Tessellate's plans slipped, so it resells into the next round."*
 - **Real chain**: click Connect Phantom, deposit devnet SOL, show the credit.
   Line: *"And the wallet string isn't decorative — deposits are verified
-  against a real Solana devnet transaction before a cent is credited."*
+  against a real Solana devnet transaction, and the contract's Token-2022
+  mint mirrors capacity straight into the wallet."*
