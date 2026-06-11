@@ -50,7 +50,12 @@ _processed: set[str] = set()
 
 def _resolve_escrow_address() -> str | None:
     """Operator-provided address wins; otherwise generate+persist a devnet
-    keypair (needs `solders`). Returns None if neither is available."""
+    keypair (needs `solders`). Returns None if neither is available.
+
+    On a read-only/serverless filesystem (e.g. Vercel's /var/task) persistence
+    is best-effort: the keypair is kept in memory so the feature still works
+    within a warm instance, and import never fails. For a stable address across
+    cold starts there, set MWNT_ESCROW_ADDRESS to an address you control."""
     env = os.getenv("MWNT_ESCROW_ADDRESS")
     if env:
         return env
@@ -58,11 +63,17 @@ def _resolve_escrow_address() -> str | None:
         from solders.keypair import Keypair
     except ImportError:
         return None
-    if _KEYFILE.exists():
-        kp = Keypair.from_bytes(bytes(json.loads(_KEYFILE.read_text())))
-    else:
-        kp = Keypair()
-        _KEYFILE.write_text(json.dumps(list(bytes(kp))))
+    try:
+        if _KEYFILE.exists():
+            kp = Keypair.from_bytes(bytes(json.loads(_KEYFILE.read_text())))
+        else:
+            kp = Keypair()
+            try:
+                _KEYFILE.write_text(json.dumps(list(bytes(kp))))
+            except OSError:
+                pass  # read-only FS: keep the ephemeral key, don't crash import
+    except OSError:
+        kp = Keypair()  # couldn't read either; fall back to an ephemeral key
     return str(kp.pubkey())
 
 
