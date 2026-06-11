@@ -216,6 +216,7 @@
     <h2>Order book</h2>
     <label for="contract">Contract (grade @ delivery window)</label>
     <select id="contract" onchange="refresh()"></select>
+    <div id="mintline" class="book-note"></div>
     <div class="row book-row">
       <div>
         <table aria-label="bids"><thead><tr><th>Bid max</th><th class="num">Hours</th></tr></thead>
@@ -331,6 +332,7 @@
           <input id="mintQty" type="number" min="1" value="40" aria-label="mint hours">
           <button type="button" onclick="mint()">Mint</button>
         </div>
+        <p class="hint">Acting as a connected wallet? Hours also mint as real <b>Token-2022</b> tokens to that wallet on devnet — each contract gets its own mint, created automatically.</p>
 
         <div class="step"><b>4</b>Post sell floor</div>
         <div class="row">
@@ -452,6 +454,7 @@ async function mint(){
     log(`minted ${$('mintQty').value}h of ${deskCid()}`);
   }catch(e){ log('mint rejected: '+e.message); }
   refresh();
+  setTimeout(refresh, 6000);  // catch the async on-chain token mirror
 }
 
 async function postFloor(){
@@ -464,16 +467,54 @@ async function postFloor(){
   refresh();
 }
 
+/* On-chain token layer: per-contract Token-2022 mint line + mirror activity.
+   Mints are created lazily server-side; this just reports what exists. */
+let seenTokEvents = 0;
+const shortAddr = a => a.slice(0,4)+'…'+a.slice(-4);
+const explorer = a => `https://explorer.solana.com/address/${a}?cluster=devnet`;
+
+function renderMintline(tok, cid){
+  const el = $('mintline');
+  if(!tok || !tok.enabled){ el.innerHTML=''; return; }
+  const mint = tok.mints[cid];
+  el.innerHTML = mint
+    ? `on-chain mint (Token-2022): <a href="${explorer(mint)}" target="_blank" rel="noopener">${shortAddr(mint)}</a>`
+    : `on-chain mint (Token-2022): created automatically on first minted hour`;
+}
+
+function logTokenEvents(tok){
+  if(!tok) return;
+  const evs = tok.events || [];
+  if(seenTokEvents===0){ // first load: note where history ends, don't replay it
+    seenTokEvents = evs.length ? evs[evs.length-1].ts : -1;
+    return;
+  }
+  for(const e of evs){
+    if(e.ts <= seenTokEvents) continue;
+    if(e.type==='mint_created')
+      log(`⛓ Token-2022 mint created for ${e.contract}: ${shortAddr(e.mint)}`);
+    else if(e.type==='minted' && e.status==='ok')
+      log(`⛓ ${e.qty}h of ${e.contract} minted to wallet ${shortAddr(e.account)}`);
+    else if(e.type==='minted' && e.status==='error')
+      log(`⛓ token mirror failed (${e.contract}): ${String(e.error).slice(0,90)}`);
+  }
+  if(evs.length) seenTokEvents = evs[evs.length-1].ts;
+}
+
 async function refresh(){
-  const [contracts, accounts, auctions, deliveries, pool, grades] = await Promise.all([
+  const [contracts, accounts, auctions, deliveries, pool, grades, tok] = await Promise.all([
     api('/contracts'), api('/accounts'), api('/auctions'), api('/deliveries'), api('/pool'),
-    api('/grades')]);
+    api('/grades'), api('/tokens').catch(()=>null)]);
   gradesById = Object.fromEntries(grades.map(g=>[g.id, g]));
 
   // contract selector
   const sel = $('contract'); const keep = sel.value;
   sel.innerHTML = contracts.map(c=>`<option ${c.id===keep?'selected':''}>${c.id}</option>`).join('');
   const cid = sel.value;
+
+  // on-chain mint for the selected contract (Token-2022, created lazily)
+  renderMintline(tok, cid);
+  logTokenEvents(tok);
 
   // trade desk: "acting as" defaults to your saved wallet, then any account
   const savedWallet = localStorage.getItem('solana_wallet') || '';
@@ -556,6 +597,7 @@ async function clearRound(){
   log(r.clearing_price==null ? `round on ${cid}: no cross`
       : `round on ${cid}: ${r.volume}h @ ${fmt(r.clearing_price)} (${r.trades.length} fills)`);
   refresh();
+  setTimeout(refresh, 6000);  // catch the async on-chain token mirror
 }
 
 async function resolve(id, action){

@@ -4,5 +4,6 @@ pydantic>=2.6
 pytest>=8.0
 httpx>=0.27
 
-# optional: enables a stable on-chain escrow address for /solana endpoints
+# optional: enables on-chain features — /solana escrow deposits and automatic
+# Token-2022 contract mints (/tokens). Without it both degrade gracefully.
 # solders>=0.21

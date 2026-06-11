@@ -49,6 +49,11 @@ def fingerprint(text: str) -> str:
 
 
 class Store:
+    # Set by app.tokens at import: mirrors capacity credits to real Token-2022
+    # tokens for wallet accounts. The store stays pure — it fires the event and
+    # never waits on (or fails because of) the chain.
+    on_capacity_credit = None  # callable(account_id, contract_id, qty) | None
+
     def __init__(self) -> None:
         self.accounts: dict[str, Account] = {}
         self.grades: dict[str, Grade] = {}
@@ -200,6 +205,14 @@ class Store:
     def credit_capacity(self, account_id: str, contract_id: str, qty: float) -> None:
         acct = self.get_account(account_id)
         acct.capacity_free[contract_id] = acct.capacity_free.get(contract_id, 0.0) + qty
+        # Every way capacity arrives (mint, auction win) funnels through here,
+        # so this one hook is the complete on-chain mirror surface.
+        cb = type(self).on_capacity_credit
+        if cb is not None:
+            try:
+                cb(account_id, contract_id, qty)
+            except Exception:
+                pass  # the ledger is the source of truth; the mirror is best-effort
 
     def reserve_capacity(self, account_id: str, contract_id: str, qty: float) -> None:
         acct = self.get_account(account_id)

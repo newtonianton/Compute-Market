@@ -25,6 +25,7 @@ from . import (
     registry,
     rfq,
     settlement,
+    tokens,
 )
 from .errors import MarketError
 
@@ -60,6 +61,7 @@ app.include_router(auction.router)
 app.include_router(settlement.router)
 app.include_router(rfq.router)
 app.include_router(onchain.router)
+app.include_router(tokens.router)
 
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"

@@ -48,9 +48,10 @@ _KEYFILE = Path(__file__).resolve().parent.parent / "escrow-devnet.json"
 _processed: set[str] = set()
 
 
-def _resolve_escrow_address() -> str | None:
-    """Operator-provided address wins; otherwise generate+persist a devnet
-    keypair (needs `solders`). Returns None if neither is available.
+def _resolve_escrow() -> tuple[str | None, object | None]:
+    """Operator-provided address wins (address only — we never hold its key);
+    otherwise generate+persist a devnet keypair (needs `solders`). Returns
+    (address, keypair); keypair is None when we don't hold the secret.
 
     On a read-only/serverless filesystem (e.g. Vercel's /var/task) persistence
     is best-effort: the keypair is kept in memory so the feature still works
@@ -58,11 +59,11 @@ def _resolve_escrow_address() -> str | None:
     cold starts there, set MWNT_ESCROW_ADDRESS to an address you control."""
     env = os.getenv("MWNT_ESCROW_ADDRESS")
     if env:
-        return env
+        return env, None
     try:
         from solders.keypair import Keypair
     except ImportError:
-        return None
+        return None, None
     try:
         if _KEYFILE.exists():
             kp = Keypair.from_bytes(bytes(json.loads(_KEYFILE.read_text())))
@@ -74,10 +75,10 @@ def _resolve_escrow_address() -> str | None:
                 pass  # read-only FS: keep the ephemeral key, don't crash import
     except OSError:
         kp = Keypair()  # couldn't read either; fall back to an ephemeral key
-    return str(kp.pubkey())
+    return str(kp.pubkey()), kp
 
 
-ESCROW_ADDRESS = _resolve_escrow_address()
+ESCROW_ADDRESS, ESCROW_KEYPAIR = _resolve_escrow()
 
 
 class OnchainDeposit(BaseModel):
