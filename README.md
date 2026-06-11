@@ -53,7 +53,7 @@ pytest -q        # 14 passed
 ## The 3-minute demo script
 
 Everything below happens in the console at `/` (it drives the same public API
-that `/docs` exposes — nothing is faked).
+that `/docs` exposes — nothing is faked)!
 
 1. **Seed the worked example** (button, top right). This registers the
    whitepaper's cast via the real endpoints: Nordfjord attests its H100s
