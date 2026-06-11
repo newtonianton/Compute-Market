@@ -26,6 +26,8 @@ mwnt/
 │   └── index.html         # zero-build demo console served at /
 ├── tests/
 │   └── test_main.py       # 14 end-to-end tests incl. the worked example, number-for-number
+├── app/onchain.py (new)   # Solana devnet link: verified SOL deposits into escrow
+├── DEMO.md                # 90-second run-of-show + timed voiceover script
 ├── conftest.py            # makes `app` importable for bare `pytest`
 ├── requirements.txt
 └── README.md
@@ -50,10 +52,13 @@ Tests:
 pytest -q        # 14 passed
 ```
 
+> For the recorded/judged version, see **DEMO.md** — a 90-second run-of-show
+> with a word-for-word voiceover script timed to the clicks.
+
 ## The 3-minute demo script
 
 Everything below happens in the console at `/` (it drives the same public API
-that `/docs` exposes — nothing is faked)!
+that `/docs` exposes — nothing is faked).
 
 1. **Seed the worked example** (button, top right). This registers the
    whitepaper's cast via the real endpoints: Nordfjord attests its H100s

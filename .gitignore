@@ -2,6 +2,3 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
-
-# devnet escrow keypair — a private key, never commit
-escrow-devnet.json
