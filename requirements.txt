@@ -3,3 +3,4 @@ uvicorn[standard]>=0.29
 pydantic>=2.6
 pytest>=8.0
 httpx>=0.27
+solders>=0.21          # devnet escrow keypair (app/onchain.py); optional — feature degrades without it

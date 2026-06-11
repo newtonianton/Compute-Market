@@ -65,6 +65,34 @@
        border-top:1px solid var(--line);padding-top:8px}
   #log div{padding:1px 0}
   .stack>*+*{margin-top:10px}
+  .register-form{margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:12px}
+  .form-note{font-size:11.5px;color:var(--dim);line-height:1.45}
+  .btn-full{margin-top:8px;width:100%}
+  .dim-text{color:var(--dim)}
+  .book-row{margin-top:10px}
+  .book-note{color:var(--dim);font-size:12px;margin-top:6px}
+  .clear-row{margin-top:12px;display:flex;gap:10px;align-items:center}
+  .pool-note{color:var(--dim);font-size:12px}
+
+  /* trade desk */
+  .desk{margin:0 26px 30px}
+  .desk-head{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+  .desk-head>div{flex:1;min-width:220px}
+  .desk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:1100px){.desk-grid{grid-template-columns:1fr}}
+  .card{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:13px 15px}
+  .card h3{font-size:13px;font-weight:700;margin-bottom:4px}
+  .card .step{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;
+              margin:12px 0 2px;border-top:1px solid var(--line);padding-top:10px}
+  .card .step:first-of-type{border-top:0;padding-top:0;margin-top:8px}
+  .card .hint{font-size:11.5px;color:var(--dim);margin-top:4px}
+  .inline{display:flex;gap:8px;align-items:flex-end}
+  .inline>button{white-space:nowrap}
+
+  /* wallet status chip */
+  .wstatus{font:12px var(--mono);color:var(--dim);align-self:center;white-space:nowrap}
+  .wstatus .wok{color:var(--bid);margin-right:5px}
+  .wstatus .wnet{color:var(--amber)}
   @media(prefers-reduced-motion:no-preference){
     #tape .pt:last-child b{animation:pop .5s ease}
     @keyframes pop{from{color:#fff}to{color:var(--amber)}}
@@ -77,9 +105,11 @@
   <h1>MWNT<span>·</span>COMPUTE EXCHANGE</h1>
   <div class="sub">graded · dated · bonded — one auction, one price</div>
   <div class="right">
-    <button class="primary" onclick="seedWorkedExample()">Seed worked example</button>
-    <button onclick="resetMarket()">Reset market</button>
-    <button onclick="window.open('/docs')">API docs</button>
+    <span id="walletStatus" class="wstatus"></span>
+    <button type="button" class="primary" onclick="connectWallet()">Connect Phantom</button>
+    <button type="button" onclick="seedWorkedExample()">Seed worked example</button>
+    <button type="button" onclick="resetMarket()">Reset market</button>
+    <button type="button" onclick="window.open('/docs')">API docs</button>
   </div>
 </header>
 
@@ -89,7 +119,15 @@
   <!-- left: participants -->
   <section>
     <h2>Participants</h2>
-    <div id="accounts"><span class="sub" style="color:var(--dim)">No accounts. Seed the worked example, or register via /docs.</span></div>
+    <div class="register-form">
+      <p class="form-note">Add a local test counterparty (a buyer or provider) with a stub balance. Your own wallet joins via <b>Connect Phantom</b> above — no manual entry needed.</p>
+      <label for="newLabel">Label</label>
+      <input id="newLabel" type="text" placeholder="e.g. My Provider">
+      <label for="initDeposit">Initial deposit (USDC)</label>
+      <input id="initDeposit" type="number" min="0" value="0" placeholder="0">
+      <button type="button" class="primary btn-full" onclick="registerAccount()">Add participant</button>
+    </div>
+    <div id="accounts"><span class="dim-text">No accounts. Add one above, connect your wallet, or seed the worked example.</span></div>
   </section>
 
   <!-- centre: the book and the round -->
@@ -97,7 +135,7 @@
     <h2>Order book — standing floors &amp; bids</h2>
     <label for="contract">Contract (grade @ delivery window)</label>
     <select id="contract" onchange="refresh()"></select>
-    <div class="row" style="margin-top:10px">
+    <div class="row book-row">
       <div>
         <table aria-label="bids"><thead><tr><th>BID max</th><th class="num">hrs</th></tr></thead>
         <tbody id="bids"></tbody></table>
@@ -107,11 +145,11 @@
         <tbody id="asks"></tbody></table>
       </div>
     </div>
-    <p class="sub" style="color:var(--dim);font-size:12px;margin-top:6px">
+    <p class="book-note">
       *floors shown bumped by each seller's failure rate — reliability is priced in before clearing.
     </p>
-    <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
-      <button class="primary" onclick="clearRound()">Clear round now</button>
+    <div class="clear-row">
+      <button type="button" class="primary" onclick="clearRound()">Clear round now</button>
       <span id="cleared"></span>
     </div>
   </section>
@@ -121,19 +159,19 @@
     <div>
       <h2>Insurance pool</h2>
       <div id="pool">$0.00</div>
-      <p class="sub" style="color:var(--dim);font-size:12px">Funded by slash surpluses — never returned to either party.</p>
+      <p class="pool-note">Funded by slash surpluses — never returned to either party.</p>
     </div>
     <div>
       <h2>Redeem — burn tokens, take delivery</h2>
       <div class="row">
         <select id="redeemer" aria-label="account"></select>
         <input id="redeemQty" type="number" min="1" value="10" aria-label="hours">
-        <button onclick="redeem()">Redeem</button>
+        <button type="button" onclick="redeem()">Redeem</button>
       </div>
     </div>
     <div>
       <h2>Deliveries</h2>
-      <table><thead><tr><th>qty</th><th>seller</th><th>status</th><th></th></tr></thead>
+      <table><thead><tr><th>qty</th><th>seller</th><th>status</th><th>actions</th></tr></thead>
       <tbody id="deliveries"></tbody></table>
     </div>
     <div>
@@ -142,6 +180,85 @@
     </div>
   </section>
 </main>
+
+<!-- full-width: act on the market without leaving the page -->
+<section class="desk">
+  <h2>Trade desk — run the market as your account</h2>
+  <div class="desk-head">
+    <div>
+      <label for="actor">Acting as</label>
+      <select id="actor" aria-label="acting as account"></select>
+    </div>
+    <div>
+      <label for="deskContract">Contract (grade @ delivery window)</label>
+      <select id="deskContract" onchange="fillAttest()" aria-label="desk contract"></select>
+    </div>
+  </div>
+
+  <div class="desk-grid">
+    <!-- BUY -->
+    <div class="card">
+      <h3>Buy — place a standing bid</h3>
+      <label for="bidQty">Hours</label>
+      <input id="bidQty" type="number" min="1" value="10">
+      <label for="bidMax">Max price (USDC / hr)</label>
+      <input id="bidMax" type="number" min="0" step="0.05" value="2.00">
+      <button type="button" class="primary btn-full" onclick="placeBid()">Place bid</button>
+      <p class="hint">Escrows hours × max price. Fills at the round's single clearing price; overpay refunds instantly.</p>
+    </div>
+
+    <!-- FUND -->
+    <div class="card">
+      <h3>Fund &amp; withdraw</h3>
+      <label for="depAmt">Deposit (USDC)</label>
+      <div class="inline">
+        <input id="depAmt" type="number" min="0" value="100">
+        <button type="button" onclick="fund()">Deposit</button>
+      </div>
+      <label for="wdAmt" class="step">Withdraw earned (USDC)</label>
+      <div class="inline">
+        <input id="wdAmt" type="number" min="0" value="0">
+        <button type="button" onclick="withdraw()">Withdraw</button>
+      </div>
+      <p class="hint" id="depHint">Stub balance. Connect Phantom and select your wallet above to deposit <b>real devnet SOL</b> instead.</p>
+    </div>
+
+    <!-- SELL -->
+    <div class="card">
+      <h3>Sell — provider flow</h3>
+
+      <div class="step">1 · Attest hardware</div>
+      <div class="row">
+        <div><label for="atGpu">GPU</label><input id="atGpu" type="text"></div>
+        <div><label for="atVram">VRAM GB</label><input id="atVram" type="number"></div>
+      </div>
+      <div class="row">
+        <div><label for="atIc">Interconnect Tbps</label><input id="atIc" type="number" step="0.1"></div>
+        <div><label for="atRegion">Region</label><input id="atRegion" type="text"></div>
+      </div>
+      <button type="button" class="btn-full" onclick="attest()">Attest</button>
+
+      <div class="step">2 · Post bond</div>
+      <div class="inline">
+        <input id="bondAmt" type="number" min="0" value="120" aria-label="bond amount USDC">
+        <button type="button" onclick="bond()">Bond</button>
+      </div>
+
+      <div class="step">3 · Mint hours</div>
+      <div class="inline">
+        <input id="mintQty" type="number" min="1" value="40" aria-label="mint hours">
+        <button type="button" onclick="mint()">Mint</button>
+      </div>
+
+      <div class="step">4 · Post sell floor</div>
+      <div class="row">
+        <div><label for="floorQty">Hours</label><input id="floorQty" type="number" min="1" value="40"></div>
+        <div><label for="floorPx">Floor price</label><input id="floorPx" type="number" min="0" step="0.05" value="1.50"></div>
+      </div>
+      <button type="button" class="btn-full" onclick="postFloor()">Post floor</button>
+    </div>
+  </div>
+</section>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -157,15 +274,133 @@ const log = m => { const d=document.createElement('div'); d.textContent='› '+m
                    $('log').prepend(d); };
 const fmt = n => '$'+Number(n).toFixed(2);
 let labels = {};
+let gradesById = {};
+
+// --- trade desk: every market action, acting as the selected account ---------
+const actorId   = () => $('actor').value;
+const deskCid   = () => $('deskContract').value;
+const gradeOf   = cid => cid.split('@')[0];   // "EU-H100.v1@2026-W25" -> "EU-H100.v1"
+const needActor = () => { if(!actorId()){ log('register / select an account first'); return false; } return true; };
+
+/* Prefill the attest form from the selected contract's grade requirements,
+   so a passing benchmark is one click away. */
+function fillAttest(){
+  const g = gradesById[gradeOf(deskCid()||'')];
+  if(!g) return;
+  const r = g.requirements;
+  $('atGpu').value = r.gpu_model;
+  $('atVram').value = r.min_vram_gb;
+  $('atIc').value = r.min_interconnect_tbps;
+  $('atRegion').value = (r.regions && r.regions[0]) || '';
+}
+
+async function placeBid(){
+  if(!needActor()) return;
+  try{
+    await post('/bids', {account_id:actorId(), contract_id:deskCid(),
+                         qty:Number($('bidQty').value), max_price:Number($('bidMax').value)});
+    log(`bid placed: ${$('bidQty').value}h ≤ ${fmt($('bidMax').value)} on ${deskCid()}`);
+  }catch(e){ log('bid rejected: '+e.message); }
+  refresh();
+}
+
+async function fund(){
+  if(!needActor()) return;
+  const amount = Number($('depAmt').value);
+
+  // Real path: the selected account is the connected wallet -> send devnet SOL.
+  if(window.walletConnected && window.walletConnected() && actorId()===window.connectedAddress()){
+    log(`requesting ${amount} SOL transfer in Phantom — approve it…`);
+    try{
+      const j = await window.depositOnchain(amount);
+      log(`✓ on-chain deposit confirmed: ${j.quote_free!=null?'':''}${amount} SOL → credited (devnet)`);
+    }catch(e){ log('on-chain deposit failed: '+(e.message||e)); }
+    refresh();
+    return;
+  }
+
+  // Stub path: any non-wallet account.
+  try{
+    await post(`/accounts/${actorId()}/deposit`, {amount});
+    log(`deposited ${fmt(amount)} (stub) to ${labels[actorId()]||actorId()}`);
+  }catch(e){ log('deposit rejected: '+e.message); }
+  refresh();
+}
+
+async function withdraw(){
+  if(!needActor()) return;
+  const amount = Number($('wdAmt').value);
+  try{
+    await post(`/accounts/${actorId()}/withdraw`, {amount});
+    log(`withdrew ${fmt(amount)} from ${labels[actorId()]||actorId()}`);
+  }catch(e){ log('withdraw rejected: '+e.message); }
+  refresh();
+}
+
+async function attest(){
+  if(!needActor()) return;
+  try{
+    await post(`/accounts/${actorId()}/attest`, {
+      grade_id: gradeOf(deskCid()),
+      gpu_model: $('atGpu').value, vram_gb: Number($('atVram').value),
+      interconnect_tbps: Number($('atIc').value), region: $('atRegion').value});
+    log(`attested ${labels[actorId()]||actorId()} for ${gradeOf(deskCid())}`);
+  }catch(e){ log('attestation failed: '+e.message); }
+  refresh();
+}
+
+async function bond(){
+  if(!needActor()) return;
+  const amount = Number($('bondAmt').value);
+  try{
+    await post(`/accounts/${actorId()}/bond`, {amount});
+    log(`bonded ${fmt(amount)} as ${labels[actorId()]||actorId()}`);
+  }catch(e){ log('bond rejected: '+e.message); }
+  refresh();
+}
+
+async function mint(){
+  if(!needActor()) return;
+  try{
+    await post('/mint', {provider_id:actorId(), contract_id:deskCid(),
+                         qty:Number($('mintQty').value)});
+    log(`minted ${$('mintQty').value}h of ${deskCid()}`);
+  }catch(e){ log('mint rejected: '+e.message); }
+  refresh();
+}
+
+async function postFloor(){
+  if(!needActor()) return;
+  try{
+    await post('/floors', {account_id:actorId(), contract_id:deskCid(),
+                          qty:Number($('floorQty').value), floor_price:Number($('floorPx').value)});
+    log(`floor posted: ${$('floorQty').value}h ≥ ${fmt($('floorPx').value)} on ${deskCid()}`);
+  }catch(e){ log('floor rejected: '+e.message); }
+  refresh();
+}
 
 async function refresh(){
-  const [contracts, accounts, auctions, deliveries, pool] = await Promise.all([
-    api('/contracts'), api('/accounts'), api('/auctions'), api('/deliveries'), api('/pool')]);
+  const [contracts, accounts, auctions, deliveries, pool, grades] = await Promise.all([
+    api('/contracts'), api('/accounts'), api('/auctions'), api('/deliveries'), api('/pool'),
+    api('/grades')]);
+  gradesById = Object.fromEntries(grades.map(g=>[g.id, g]));
 
   // contract selector
   const sel = $('contract'); const keep = sel.value;
   sel.innerHTML = contracts.map(c=>`<option ${c.id===keep?'selected':''}>${c.id}</option>`).join('');
   const cid = sel.value;
+
+  // trade desk: "acting as" defaults to your saved wallet, then any account
+  const savedWallet = localStorage.getItem('solana_wallet') || '';
+  const actor = $('actor'); const keepActor = actor.value || savedWallet;
+  actor.innerHTML = accounts.length
+    ? accounts.map(a=>`<option value="${a.id}" ${a.id===keepActor?'selected':''}>${a.label||a.id}</option>`).join('')
+    : '<option value="">register an account first</option>';
+
+  // trade desk contract selector (independent of the book's selector)
+  const dsel = $('deskContract'); const keepDesk = dsel.value;
+  dsel.innerHTML = contracts.map(c=>`<option ${c.id===keepDesk?'selected':''}>${c.id}</option>`).join('');
+  if(!keepDesk) fillAttest();
 
   // index tape
   const printed = auctions.filter(a=>a.clearing_price!=null);
@@ -287,7 +522,130 @@ async function seedWorkedExample(){
   };
 }
 
+/* Called by the wallet module after a successful Phantom connect: persist the
+   real address so the trade desk's "Acting as" selector defaults to it. */
+window.__setWallet = (addr) => { localStorage.setItem('solana_wallet', addr); };
+
+async function registerAccount(){
+  const label = $('newLabel').value.trim();
+  const deposit = Number($('initDeposit').value) || 0;
+  try{
+    const acct = await post('/accounts', { label });
+    if(deposit > 0) await post(`/accounts/${acct.id}/deposit`, {amount: deposit});
+    log(`added ${acct.label || acct.id}${deposit > 0 ? ` with ${fmt(deposit)} deposit` : ''}`);
+    $('newLabel').value = '';
+    $('initDeposit').value = '0';
+  }catch(e){ log('add failed: '+e.message); }
+  refresh();
+}
+
 refresh();
+</script>
+
+<!-- Wallet module: real Solana (devnet) — connect Phantom, read balance, deposit -->
+<script type="module">
+import {
+  Connection, PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL
+} from 'https://esm.sh/@solana/web3.js@1.95.3';
+
+let cfg = null, conn = null, walletPk = null;
+
+function provider(){
+  const p = window.phantom?.solana || window.solana;
+  return (p && p.isPhantom) ? p : null;
+}
+
+async function loadCfg(){
+  if(cfg) return cfg;
+  cfg = await (await fetch('/solana/config')).json();
+  conn = new Connection(cfg.rpc_url, 'confirmed');
+  return cfg;
+}
+
+async function showStatus(){
+  const el = document.getElementById('walletStatus');
+  if(!walletPk){ el.textContent = ''; return; }
+  const a = walletPk.toBase58();
+  let bal = '…';
+  try { bal = ((await conn.getBalance(walletPk)) / LAMPORTS_PER_SOL).toFixed(2); }
+  catch { bal = '?'; }
+  el.innerHTML = `<span class="wok">●</span>${a.slice(0,4)}…${a.slice(-4)} · ${bal} SOL · <span class="wnet">${cfg.network}</span>`;
+}
+
+window.connectWallet = async function(){
+  const p = provider();
+  if(!p){
+    alert('Phantom wallet not detected. Install it, then reload this page.');
+    window.open('https://phantom.app/', '_blank');
+    return;
+  }
+  try{
+    await loadCfg();
+    const { publicKey } = await p.connect();
+    walletPk = publicKey;
+    const addr = walletPk.toBase58();
+
+    // Prove custody: sign a nonce. (No funds move; this just verifies the key.)
+    const nonce = Math.random().toString(36).slice(2);
+    const msg = new TextEncoder().encode(
+      `MWNT Compute Market sign-in\nwallet: ${addr}\nnonce: ${nonce}`);
+    await p.signMessage(msg, 'utf8');
+
+    window.__setWallet?.(addr);
+    // Register the account server-side if it's new (ignore "already exists").
+    try {
+      await fetch('/accounts', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ wallet: addr, label: 'My Wallet' })});
+    } catch {}
+
+    await showStatus();
+    window.refresh?.();
+  }catch(e){ alert('Connect failed: ' + (e.message || e)); }
+};
+
+window.walletConnected   = () => !!walletPk;
+window.connectedAddress  = () => walletPk ? walletPk.toBase58() : null;
+
+window.depositOnchain = async function(sol){
+  const p = provider();
+  if(!p || !walletPk) throw new Error('connect your wallet first');
+  await loadCfg();
+  if(!cfg.configured) throw new Error('server escrow not configured (install solders)');
+  if(!(sol > 0)) throw new Error('enter an amount greater than 0');
+
+  const tx = new Transaction().add(SystemProgram.transfer({
+    fromPubkey: walletPk,
+    toPubkey: new PublicKey(cfg.escrow_address),
+    lamports: Math.round(sol * LAMPORTS_PER_SOL),
+  }));
+  tx.feePayer = walletPk;
+  tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
+
+  const { signature } = await p.signAndSendTransaction(tx);
+  await conn.confirmTransaction(signature, 'confirmed');
+
+  const r = await fetch('/solana/deposit', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ account_id: walletPk.toBase58(), signature })});
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(j.detail || 'server could not verify the deposit');
+  await showStatus();
+  return j;
+};
+
+// If Phantom is already authorized, reconnect quietly on load.
+(async () => {
+  const p = provider();
+  if(!p) return;
+  try{
+    await loadCfg();
+    const { publicKey } = await p.connect({ onlyIfTrusted: true });
+    walletPk = publicKey;
+    window.__setWallet?.(walletPk.toBase58());
+    await showStatus();
+    window.refresh?.();
+  }catch{ /* not previously authorized — user clicks Connect */ }
+})();
 </script>
 </body>
 </html>

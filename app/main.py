@@ -15,7 +15,17 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
-from . import __version__, auction, config, deps, grades, registry, rfq, settlement
+from . import (
+    __version__,
+    auction,
+    config,
+    deps,
+    grades,
+    onchain,
+    registry,
+    rfq,
+    settlement,
+)
 from .errors import MarketError
 
 app = FastAPI(
@@ -49,6 +59,7 @@ app.include_router(grades.router)
 app.include_router(auction.router)
 app.include_router(settlement.router)
 app.include_router(rfq.router)
+app.include_router(onchain.router)
 
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
