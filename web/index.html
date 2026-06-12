@@ -267,7 +267,7 @@
     <div class="desk-head">
       <div>
         <label for="actor">Acting as</label>
-        <select id="actor" aria-label="acting as account"></select>
+        <select id="actor" aria-label="acting as account" onchange="updateUnits()"></select>
       </div>
       <div>
         <label for="deskContract">Contract (grade @ delivery window)</label>
@@ -292,12 +292,12 @@
       <div class="card">
         <h3>Fund &amp; withdraw</h3>
         <p class="sub">Move money in and out</p>
-        <label for="depAmt">Deposit (USDC)</label>
+        <label for="depAmt">Deposit (<span id="depUnit">USDC</span>)</label>
         <div class="inline">
           <input id="depAmt" type="number" min="0" value="100">
           <button type="button" onclick="fund()">Deposit</button>
         </div>
-        <label for="wdAmt">Withdraw earned (USDC)</label>
+        <label for="wdAmt">Withdraw earned (<span id="wdUnit">USDC</span>)</label>
         <div class="inline">
           <input id="wdAmt" type="number" min="0" value="0">
           <button type="button" onclick="withdraw()">Withdraw</button>
@@ -391,16 +391,31 @@ async function placeBid(){
   refresh();
 }
 
+/* Is the trade desk acting as the connected real wallet (vs a stub account)? */
+const actingAsWallet = () =>
+  window.walletConnected && window.walletConnected() && actorId()===window.connectedAddress();
+
+/* Tell the truth about which currency the Fund card moves: the market quotes
+   USDC, but the wallet path moves real devnet SOL (demo rate 1 SOL = 1 unit). */
+function updateUnits(){
+  const w = actingAsWallet();
+  $('depUnit').textContent = w ? 'devnet SOL' : 'USDC';
+  $('wdUnit').textContent  = w ? 'devnet SOL' : 'USDC';
+  $('depHint').innerHTML = w
+    ? 'Real <b>devnet SOL</b> moves both ways for this wallet — deposits are verified on-chain; withdrawals send SOL back from escrow. Demo rate: 1 SOL = 1 USDC quote unit.'
+    : 'Stub balance. Connect Phantom and select your wallet above to move <b>real devnet SOL</b> instead.';
+}
+
 async function fund(){
   if(!needActor()) return;
   const amount = Number($('depAmt').value);
 
   // Real path: the selected account is the connected wallet -> send devnet SOL.
-  if(window.walletConnected && window.walletConnected() && actorId()===window.connectedAddress()){
+  if(actingAsWallet()){
     log(`requesting ${amount} SOL transfer in Phantom — approve it…`);
     try{
       await window.depositOnchain(amount);
-      log(`✓ on-chain deposit confirmed: ${amount} SOL → credited (devnet)`);
+      log(`✓ on-chain deposit confirmed: ${amount} devnet SOL → ${amount} quote units`);
     }catch(e){ log('on-chain deposit failed: '+(e.message||e)); }
     refresh();
     return;
@@ -417,9 +432,21 @@ async function fund(){
 async function withdraw(){
   if(!needActor()) return;
   const amount = Number($('wdAmt').value);
+
+  // Real path: escrow sends devnet SOL back to the wallet, ledger debited.
+  if(actingAsWallet()){
+    try{
+      const r = await post('/solana/withdraw', {account_id:actorId(), sol:amount});
+      log(`✓ withdrew ${amount} devnet SOL to wallet (tx ${r.signature.slice(0,8)}…)`);
+    }catch(e){ log('on-chain withdraw failed: '+e.message); }
+    refresh();
+    return;
+  }
+
+  // Stub path.
   try{
     await post(`/accounts/${actorId()}/withdraw`, {amount});
-    log(`withdrew ${fmt(amount)} from ${labels[actorId()]||actorId()}`);
+    log(`withdrew ${fmt(amount)} (stub) from ${labels[actorId()]||actorId()}`);
   }catch(e){ log('withdraw rejected: '+e.message); }
   refresh();
 }
@@ -522,6 +549,7 @@ async function refresh(){
   actor.innerHTML = accounts.length
     ? accounts.map(a=>`<option value="${a.id}" ${a.id===keepActor?'selected':''}>${a.label||a.id}</option>`).join('')
     : '<option value="">register an account first</option>';
+  updateUnits();
 
   // trade desk contract selector (independent of the book's selector)
   const dsel = $('deskContract'); const keepDesk = dsel.value;

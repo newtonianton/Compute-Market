@@ -21,6 +21,7 @@ Config (all optional; sensible devnet defaults):
                         the solana CLI using that keyfile).
 """
 
+import base64
 import json
 import os
 import time
@@ -99,6 +100,32 @@ def _rpc(method: str, params: list) -> dict:
     return body.get("result")
 
 
+def _blockhash():
+    from solders.hash import Hash
+    return Hash.from_string(_rpc("getLatestBlockhash", [])["value"]["blockhash"])
+
+
+def _send_tx(tx) -> str:
+    """Send a signed transaction and wait for `confirmed`. preflightCommitment
+    must match that level: the default (finalized) lags by seconds, so a tx
+    depending on a just-confirmed account would simulate against a ledger
+    where it doesn't exist yet and be rejected."""
+    sig = _rpc("sendTransaction", [
+        base64.b64encode(bytes(tx)).decode(),
+        {"encoding": "base64", "skipPreflight": False,
+         "preflightCommitment": "confirmed"},
+    ])
+    for _ in range(30):
+        st = _rpc("getSignatureStatuses", [[sig]])
+        info = (st or {}).get("value", [None])[0]
+        if info and info.get("confirmationStatus") in ("confirmed", "finalized"):
+            if info.get("err") is not None:
+                raise BadRequest(f"transaction failed on-chain: {info['err']}")
+            return sig
+        time.sleep(1)
+    raise BadRequest("transaction not confirmed within 30s")
+
+
 def _fetch_transfer_to_escrow(signature: str) -> int:
     """Return lamports the escrow account gained in this tx (0 if it wasn't a
     recipient). Retries briefly: a just-confirmed tx can lag the RPC index."""
@@ -160,3 +187,48 @@ def solana_deposit(req: OnchainDeposit, store: Store = Depends(get_store)) -> Ac
     sol = lamports / LAMPORTS_PER_SOL
     store.credit_quote(req.account_id, sol)
     return store.get_account(req.account_id)
+
+
+class OnchainWithdraw(BaseModel):
+    account_id: str = Field(description="The receiving wallet address.")
+    sol: float = Field(gt=0, description="SOL to withdraw (1 quote unit = 1 SOL).")
+
+
+@router.post("/solana/withdraw",
+             summary="Withdraw quote balance as real SOL back to the wallet")
+def solana_withdraw(req: OnchainWithdraw, store: Store = Depends(get_store)) -> dict:
+    """The reverse of /solana/deposit: debit the in-app balance, then the
+    escrow signs a real transfer back to the wallet. The ledger debit caps the
+    withdrawal — you can only take out what your account holds — and rolls
+    back if the on-chain send fails."""
+    if ESCROW_KEYPAIR is None:
+        raise BadRequest(
+            "withdrawals need the local escrow keypair "
+            "(unset MWNT_ESCROW_ADDRESS and install solders)")
+
+    from solders.pubkey import Pubkey
+    from solders.system_program import TransferParams, transfer
+    from solders.transaction import Transaction
+    try:
+        dest = Pubkey.from_string(req.account_id)
+    except Exception:
+        raise BadRequest(f"{req.account_id!r} is not a valid Solana address")
+
+    lamports = round(req.sol * LAMPORTS_PER_SOL)
+    bal = _rpc("getBalance", [ESCROW_ADDRESS])["value"]
+    if bal < lamports + 5_000_000:  # amount + fee + dust so minting keeps working
+        raise BadRequest(
+            f"escrow holds {bal / LAMPORTS_PER_SOL:.4f} SOL — not enough to pay "
+            f"out {req.sol:g} and keep fee headroom")
+
+    store.debit_quote(req.account_id, req.sol)  # raises InsufficientFunds
+    try:
+        ix = transfer(TransferParams(from_pubkey=ESCROW_KEYPAIR.pubkey(),
+                                     to_pubkey=dest, lamports=lamports))
+        sig = _send_tx(Transaction.new_signed_with_payer(
+            [ix], ESCROW_KEYPAIR.pubkey(), [ESCROW_KEYPAIR], _blockhash()))
+    except Exception:
+        store.credit_quote(req.account_id, req.sol)  # roll the ledger back
+        raise
+    return {"account_id": req.account_id, "sol": req.sol, "signature": sig,
+            "status": "settled"}

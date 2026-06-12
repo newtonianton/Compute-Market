@@ -25,7 +25,6 @@ confirmation (~1-2 s) never blocks an auction round. Mint addresses persist in
 token-mints-devnet.json; recent mirror events are inspectable at GET /tokens.
 """
 
-import base64
 import json
 import queue
 import threading
@@ -41,7 +40,6 @@ from .errors import BadRequest
 from .store import Store
 
 try:
-    from solders.hash import Hash
     from solders.instruction import AccountMeta, Instruction
     from solders.keypair import Keypair
     from solders.pubkey import Pubkey
@@ -97,26 +95,10 @@ def _event(**kw) -> None:
     _events.append({"ts": time.time(), **kw})
 
 
-# --- transaction plumbing (devnet RPC via onchain._rpc) -------------------------
+# --- transaction plumbing (shared with onchain.py) ------------------------------
 
-def _send_tx(tx) -> str:
-    sig = onchain._rpc("sendTransaction", [
-        base64.b64encode(bytes(tx)).decode(),
-        {"encoding": "base64", "skipPreflight": False},
-    ])
-    for _ in range(30):
-        st = onchain._rpc("getSignatureStatuses", [[sig]])
-        info = (st or {}).get("value", [None])[0]
-        if info and info.get("confirmationStatus") in ("confirmed", "finalized"):
-            if info.get("err") is not None:
-                raise BadRequest(f"transaction failed on-chain: {info['err']}")
-            return sig
-        time.sleep(1)
-    raise BadRequest("transaction not confirmed within 30s")
-
-
-def _blockhash() -> "Hash":
-    return Hash.from_string(onchain._rpc("getLatestBlockhash", [])["value"]["blockhash"])
+_send_tx = onchain._send_tx       # send + confirm at matching commitment levels
+_blockhash = onchain._blockhash
 
 
 def _ensure_fee_funding() -> None:
@@ -228,7 +210,17 @@ def _worker() -> None:
     while True:
         account_id, contract_id, qty = _queue.get()
         try:
-            sig = _mint_to_wallet(account_id, contract_id, qty)
+            for attempt in range(3):
+                try:
+                    sig = _mint_to_wallet(account_id, contract_id, qty)
+                    break
+                except BadRequest as e:
+                    # Retry only send-time rejections ("RPC error ..."): the tx
+                    # provably never landed, so a retry cannot double-mint.
+                    # Confirmation timeouts are ambiguous — never blind-retry.
+                    if attempt == 2 or not str(e).startswith("RPC error"):
+                        raise
+                    time.sleep(2)
             _event(type="minted", account=account_id, contract=contract_id,
                    qty=qty, sig=sig, status="ok")
         except Exception as e:  # never kill the worker; surface via /tokens
