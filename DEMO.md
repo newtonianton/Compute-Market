@@ -74,40 +74,45 @@ itself ~6 s after a mint to catch the async mirror.
 
 ## Voiceover script (~2 minutes)
 
-> **[0:00]** MWNT — small data centres sell idle GPU time to strangers. Spare
-> compute is hard to trade: every GPU differs, every hour is perishable. So we
-> made it a commodity.
+> **[0:00]** This is MWNT, where small data centres sell idle GPU time to
+> strangers. Spare compute is hard to trade, because every GPU differs and every
+> hour is perishable. So we turned it into a commodity.
 >
 > **[0:08]** One click seeds a real round through the public API. Three providers
-> attest against a fingerprinted grade, post collateral, set one standing floor —
-> Nordfjord: "anything above a dollar fifty," then walks away. Three buyers post
-> maximums, fully escrowed. Each ask is bumped by the seller's failure rate —
-> reliability priced in *before* clearing.
+> attest their hardware against a fingerprinted grade, post collateral, and set a
+> single standing floor. Nordfjord asks for anything above a dollar fifty and then
+> walks away. Three buyers post their maximums, fully escrowed. Notice that each
+> ask is bumped by the seller's failure rate, so reliability is priced in before
+> the round even clears.
 >
-> **[0:20]** One auction, one price: sixty hours at two dollars flat. Nordfjord
-> asked one-fifty, *receives* two; Tessellate offered two-forty, *pays* two, and
-> its spare escrow is already refunded. Truthful bidding just wins. The seller's
-> money waits in escrow until delivery happens.
+> **[0:20]** One auction settles at one price. Sixty hours clear at two dollars
+> flat. Nordfjord asked for one-fifty and receives two, while Tessellate offered
+> two-forty, pays two, and has its spare escrow refunded instantly. Truthful
+> bidding is simply the best strategy. The seller's money then waits in escrow
+> until delivery actually happens.
 >
-> **[0:38]** Tessellate redeems, the hours deliver: escrow releases, Nordfjord's
-> record improves, its next collateral drops. Trust is earned down, not assumed.
+> **[0:38]** Tessellate redeems, and the hours deliver. The escrow releases to
+> Nordfjord, its record improves, and its next collateral requirement drops. Trust
+> is earned down, not assumed.
 >
-> **[0:50]** Now the part that makes strangers safe. Ten hours no-show: buyer
-> refunded twenty, compensated four from the seller's bond, six more slashed to a
-> shared insurance pool. Run both sides yourself and you lose six every cycle.
-> Fraud isn't detected here — it's unprofitable by arithmetic.
+> **[0:50]** Now comes the part that makes strangers safe. Ten hours no-show. The
+> buyer is refunded twenty dollars, compensated four more from the seller's bond,
+> and six on top of that are slashed into a shared insurance pool. Run both sides
+> of the trade yourself and you lose six dollars every cycle. Fraud isn't detected
+> here; it's made unprofitable by arithmetic.
 >
-> **[1:05]** And none of this is mocked. I'm on a real Phantom wallet. I deposit
-> devnet SOL — and the server re-reads the transaction on-chain before crediting
-> a cent.
+> **[1:05]** And none of this is mocked. I'm connected with a real Phantom wallet.
+> When I deposit devnet SOL, the server re-reads the transaction on-chain before
+> it credits a single cent.
 >
-> **[1:18]** Then I mint capacity as this wallet, and "each contract is one token
-> mint" stops being a whitepaper line: a real **Token-2022** mint spins up on
-> devnet and the hours land straight in Phantom — real and transferable. The
+> **[1:18]** Then I mint capacity as this wallet, and the line "each contract is
+> one token mint" stops being a whitepaper promise. A real Token-2022 mint spins
+> up on devnet, and the hours land straight in Phantom, real and transferable. The
 > holder-signed burn on redemption is the honest next step.
 >
-> **[1:35]** Graded, dated, bonded compute — trading like a commodity and settling
-> on real tokens, because the protocol manufactures the trust that makes it one.
+> **[1:35]** This is graded, dated, bonded compute that trades like a commodity and
+> settles on real tokens, because the protocol manufactures the trust that makes it
+> one.
 
 ## Delivery notes
 
